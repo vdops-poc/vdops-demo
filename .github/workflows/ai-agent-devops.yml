@@ -43,29 +43,7 @@ jobs:
         run: |
           echo "Preparing payload for n8n AI Agent..."
 
-          INSTALL_LOG="$(tail -n 80 install.log 2>/dev/null | sed 's/\"/\\"/g')"
-          TEST_LOG="$(tail -n 120 test.log 2>/dev/null | sed 's/\"/\\"/g')"
-          DOCKER_LOG="$(tail -n 80 docker.log 2>/dev/null | sed 's/\"/\\"/g')"
-
-          LOG_SNIPPET="$INSTALL_LOG\n\n$TEST_LOG\n\n$DOCKER_LOG"
-
-          cat <<EOF > payload.json
-          {
-            "repository": "${GITHUB_REPOSITORY}",
-            "branch": "${GITHUB_REF_NAME}",
-            "commit": "${GITHUB_SHA}",
-            "actor": "${GITHUB_ACTOR}",
-            "workflow": "${GITHUB_WORKFLOW}",
-            "run_id": "${GITHUB_RUN_ID}",
-            "job": "${GITHUB_JOB}",
-            "log_snippet": "$LOG_SNIPPET"
-          }
-          EOF
-
-          echo "Sending data to n8n..."
-          curl -X POST "$N8N_WEBHOOK_URL" \
-               -H "Content-Type: application/json" \
-               --data-binary @payload.json
+           bash scripts/gha-n8n.sh
 
       # Save logs for debugging
       - name: Upload CI Logs
