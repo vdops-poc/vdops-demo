@@ -44,7 +44,8 @@ jobs:
       - name: Send Failure to AI DevOps Agent
         if: failure()
         env:
-          N8N_WEBHOOK_URL: "https://vdopspoc.app.n8n.cloud/webhook/github-failure-agent"
+          #N8N_WEBHOOK_URL: "https://vdopspoc.app.n8n.cloud/webhook/github-failure-agent"
+          N8N_WEBHOOK_URL: "https://vdopspoc.app.n8n.cloud/webhook-test/github-failure-agent"
         run: |
           echo "Preparing payload for n8n AI Agent..."
 
