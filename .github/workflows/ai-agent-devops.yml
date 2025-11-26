@@ -10,45 +10,62 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # --------------------------------------
+      # Checkout Code
+      # --------------------------------------
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # --------------------------------------
+      # Setup Node.js
+      # --------------------------------------
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
+      # --------------------------------------
+      # Install Dependencies (FAIL properly)
+      # --------------------------------------
       - name: Install Dependencies
         run: |
+          set -o pipefail
           npm install 2>&1 | tee install.log
 
+      # --------------------------------------
+      # Run Tests (FAIL properly)
+      # --------------------------------------
       - name: Run Tests
         run: |
+          set -o pipefail
           npm test 2>&1 | tee test.log
 
       # --------------------------------------
-      # OPTIONAL: Validate Dockerfile (build)
+      # Build Docker (optional but useful)
+      # If Docker build fails → CI FAILS properly
       # --------------------------------------
-      - name: Try building Docker image (optional but useful)
+      - name: Try Docker Build
         run: |
-          docker build -t vdops/demo . 2>&1 | tee docker.log || true
+          set -o pipefail
+          docker build -t vdops/demo . 2>&1 | tee docker.log
 
       # ============================================================
-      #          SEND FAILURE TO AI DEVOPS AGENT VIA N8N
+      #          SEND FAILURE TO N8N AI DEVOPS AGENT
       # ============================================================
       - name: Send Failure to AI DevOps Agent
         if: failure()
         env:
           N8N_WEBHOOK_URL: "https://vdopspoc.app.n8n.cloud/webhook/github-failure-agent"
         run: |
-          echo "Preparing payload for n8n AI Agent..."
+          echo "Preparing failure payload..."
 
-          INSTALL_LOG="$(tail -n 80 install.log 2>/dev/null | sed 's/\"/\\"/g')"
-          TEST_LOG="$(tail -n 120 test.log 2>/dev/null | sed 's/\"/\\"/g')"
-          DOCKER_LOG="$(tail -n 80 docker.log 2>/dev/null | sed 's/\"/\\"/g')"
+          INSTALL_LOG="$(tail -n 120 install.log 2>/dev/null | sed 's/\"/\\"/g')"
+          TEST_LOG="$(tail -n 250 test.log 2>/dev/null | sed 's/\"/\\"/g')"
+          DOCKER_LOG="$(tail -n 150 docker.log 2>/dev/null | sed 's/\"/\\"/g')"
 
           LOG_SNIPPET="$INSTALL_LOG\n\n$TEST_LOG\n\n$DOCKER_LOG"
 
+          # Build JSON payload compatible with n8n workflow
           cat <<EOF > payload.json
           {
             "repository": "${GITHUB_REPOSITORY}",
@@ -62,12 +79,14 @@ jobs:
           }
           EOF
 
-          echo "Sending data to n8n..."
+          echo "Sending payload to AI DevOps Agent @ n8n..."
           curl -X POST "$N8N_WEBHOOK_URL" \
                -H "Content-Type: application/json" \
                --data-binary @payload.json
 
-      # Save logs for debugging
+      # --------------------------------------
+      # Upload failure logs as CI artifacts
+      # --------------------------------------
       - name: Upload CI Logs
         if: failure()
         uses: actions/upload-artifact@v4
@@ -77,4 +96,3 @@ jobs:
             install.log
             test.log
             docker.log
-
