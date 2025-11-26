@@ -5,43 +5,20 @@ set -euo pipefail
 echo "Preparing sanitized payload for AI DevOps Agent (n8n)..."
 
 # --------------------------------------------------------------------
-# 1. Collect logs from the actual log files created during the build
+# 1. Extract the last meaningful log lines from workflow
+#    (adjust tail -n 300 depending on needs)
 # --------------------------------------------------------------------
-RAW_LOG=""
-
-# Collect install logs if they exist
-if [ -f "install.log" ]; then
-  echo "=== INSTALL LOGS ===" >> combined.log
-  tail -n 100 install.log >> combined.log
-fi
-
-# Collect test logs if they exist (most important for failures)
-if [ -f "test.log" ]; then
-  echo "=== TEST LOGS ===" >> combined.log
-  tail -n 200 test.log >> combined.log
-fi
-
-# Collect docker logs if they exist
-if [ -f "docker.log" ]; then
-  echo "=== DOCKER BUILD LOGS ===" >> combined.log
-  tail -n 100 docker.log >> combined.log
-fi
-
-# Read the combined log
-if [ -f "combined.log" ]; then
-  RAW_LOG=$(cat combined.log)
-else
-  RAW_LOG="No logs captured - log files not found."
-fi
+RAW_LOG=$(tail -n 300 "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "No logs captured.")
 
 # --------------------------------------------------------------------
-# 2. Remove ANSI color codes
+# 2. Remove ANSI color codes ([31m etc.)
 # --------------------------------------------------------------------
 STRIPPED_LOG=$(printf "%s" "$RAW_LOG" \
   | sed -r "s/\x1B\[[0-9;]*[JKmsu]//g")
 
 # --------------------------------------------------------------------
-# 3. JSON escape helper
+# 3. JSON escape helper:
+#    Converts: \ → \\ , " → \" , newlines → \n , tabs → \t
 # --------------------------------------------------------------------
 json_escape() {
   sed -e ':a' -e 'N' -e '$!ba' \
@@ -55,7 +32,7 @@ json_escape() {
 ESCAPED_LOG=$(printf "%s" "$STRIPPED_LOG" | json_escape)
 
 # --------------------------------------------------------------------
-# 4. Truncate extremely large logs
+# 4. Truncate extremely large logs (+ safety margin)
 # --------------------------------------------------------------------
 MAX=8000
 if [ ${#ESCAPED_LOG} -gt $MAX ]; then
@@ -86,12 +63,12 @@ if ! jq . payload.json >/dev/null 2>&1; then
 fi
 echo "✔ JSON valid"
 
-echo "..... repository is ${GITHUB_REPOSITORY}......."
-echo "......branch is ${GITHUB_REF_NAME}........"
-echo "......commit is ${GITHUB_SHA}........"
+echo "..... repository  is  ${GITHUB_REPOSITORY}......."
+echo "......branch is  ${GITHUB_REF_NAME}........"
+echo "......commit is  ${GITHUB_SHA}........"
 echo "......actor is ${GITHUB_ACTOR}......"
-echo "......workflow is ${GITHUB_WORKFLOW}........"
-echo ".... run_id is ${GITHUB_RUN_ID}............."
+echo "......workflow  is ${GITHUB_WORKFLOW}........"
+echo ".... run_id" is  ${GITHUB_RUN_ID}............."
 echo "........job is ${GITHUB_JOB}.........."
 
 # --------------------------------------------------------------------
@@ -113,4 +90,4 @@ if [[ "$HTTP_CODE" -ge 400 ]]; then
   exit 1
 fi
 
-echo "✔ Payload sent successfully to AI DevOps Agent (n8n)"
+echo "✔ Payload sent successfully to AI DevOps Agent n8n"
