@@ -1,0 +1,32 @@
+services:
+    n8n:
+        container_name: n8n-devops-agent
+        image:  n8nio/n8n
+        restart: always
+        ports:
+          - "5678:5678"
+        environment:
+         # REQUIRED FOR n8n PRO/ENTERPRISE FEATURES
+          N8N_LICENSE_KEY: "${N8N_LICENSE_KEY}"
+
+          # REQUIRED FOR CREDENTIAL STORAGE
+          N8N_ENCRYPTION_KEY: "nz1N3aDJKnoq09TACI+r/wOdhA9CTdiy"
+
+      # ENABLE IMPORT / EXPORT / VERSIONING (MUST HAVE)
+          N8N_VERSIONED_WORKFLOW: "true"
+          N8N_IMPORT_EXPORT_ENABLED: "true"
+          N8N_TEMPLATES_ENABLED: "true"
+
+      # OPTIONAL BUT USEFUL
+          N8N_LOG_LEVEL: debug
+          N8N_USER_MANAGEMENT_DISABLED: "false"
+
+      # PUBLIC URL (VERY IMPORTANT IN CODESPACES)
+      # Update this after Codespace exposes your port URL.
+          N8N_HOST: "localhost"
+          N8N_PORT: 5678
+          WEBHOOK_TUNNELS_ENABLED: "true"
+          N8N_DIAGNOSTICS_ENABLED: "false"
+        volumes:
+          - ./n8n_data:/home/node/.n8n
+

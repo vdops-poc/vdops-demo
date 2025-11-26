@@ -1,0 +1,80 @@
+name: Node.js CI with AI DevOps Auto-PR Agent
+
+on:
+  push:
+    branches: [ main, "**" ]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Dependencies
+        run: |
+          npm install 2>&1 | tee install.log
+
+      - name: Run Tests
+        run: |
+          npm test 2>&1 | tee test.log
+
+      # --------------------------------------
+      # OPTIONAL: Validate Dockerfile (build)
+      # --------------------------------------
+      - name: Try building Docker image (optional but useful)
+        run: |
+          docker build -t vdops/demo . 2>&1 | tee docker.log || true
+
+      # ============================================================
+      #          SEND FAILURE TO AI DEVOPS AGENT VIA N8N
+      # ============================================================
+      - name: Send Failure to AI DevOps Agent
+        if: failure()
+        env:
+          N8N_WEBHOOK_URL: "https://vdopspoc.app.n8n.cloud/webhook/github-failure-agent"
+        run: |
+          echo "Preparing payload for n8n AI Agent..."
+
+          INSTALL_LOG="$(tail -n 80 install.log 2>/dev/null | sed 's/\"/\\"/g')"
+          TEST_LOG="$(tail -n 120 test.log 2>/dev/null | sed 's/\"/\\"/g')"
+          DOCKER_LOG="$(tail -n 80 docker.log 2>/dev/null | sed 's/\"/\\"/g')"
+
+          LOG_SNIPPET="$INSTALL_LOG\n\n$TEST_LOG\n\n$DOCKER_LOG"
+
+          cat <<EOF > payload.json
+          {
+            "repository": "${GITHUB_REPOSITORY}",
+            "branch": "${GITHUB_REF_NAME}",
+            "commit": "${GITHUB_SHA}",
+            "actor": "${GITHUB_ACTOR}",
+            "workflow": "${GITHUB_WORKFLOW}",
+            "run_id": "${GITHUB_RUN_ID}",
+            "job": "${GITHUB_JOB}",
+            "log_snippet": "$LOG_SNIPPET"
+          }
+          EOF
+
+          echo "Sending data to n8n..."
+          curl -X POST "$N8N_WEBHOOK_URL" \
+               -H "Content-Type: application/json" \
+               --data-binary @payload.json
+
+      # Save logs for debugging
+      - name: Upload CI Logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-failure-logs
+          path: |
+            install.log
+            test.log
+            docker.log
+
