@@ -8,3 +8,4 @@ function assertEqual(a, b, message) {
 // This test will FAIL intentionally to trigger n8n AI
 assertEqual(1 + 1, 3, "AI should detect and fix this test");
 
+process.exit(1);
