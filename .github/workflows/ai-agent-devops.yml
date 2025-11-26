@@ -25,7 +25,11 @@ jobs:
       - name: Run Tests
         run: |
           npm test 2>&1 | tee test.log
-
+          TEST_EXIT=${PIPESTATUS[0]}
+          if [ $TEST_EXIT -ne 0 ]; then
+              echo "❌ npm test failed — stopping pipeline"
+              exit $TEST_EXIT
+          fi
       # --------------------------------------
       # OPTIONAL: Validate Dockerfile (build)
       # --------------------------------------
